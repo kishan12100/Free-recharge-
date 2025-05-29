@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>चिड़िया उड़ाओ!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* इंटर फ़ॉन्ट लागू करें */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* कोई स्क्रॉल बार नहीं */
+            background-color: #87CEEB; /* हल्का नीला आसमान */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh; /* पूरी व्यूपोर्ट ऊंचाई */
+            margin: 0;
+            padding: 1rem;
+        }
+        /* गेम कंटेनर */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px; /* अधिकतम चौड़ाई */
+            height: 600px; /* निश्चित ऊंचाई */
+            background-color: #ADD8E6; /* हल्का नीला */
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 4px solid #4A5568; /* गहरा बॉर्डर */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            cursor: pointer; /* क्लिक करने योग्य दिखाने के लिए */
+        }
+        /* चिड़िया */
+        #bird {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #FFD700; /* सुनहरा पीला */
+            border-radius: 50%; /* गोल चिड़िया */
+            left: 50px; /* बाईं ओर से शुरू करें */
+            top: 250px; /* बीच में शुरू करें */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem; /* इमोजी का आकार */
+            line-height: 1; /* इमोजी को ठीक से संरेखित करें */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* हल्का शैडो */
+            transition: background-color 0.1s ease-in-out; /* फ्लैप पर रंग बदलने के लिए */
+            z-index: 10;
+        }
+        /* स्कोर डिस्प्ले */
+        #score-display {
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+            z-index: 20;
+        }
+        /* मैसेज बॉक्स (गेम ओवर) */
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85); /* गहरा पारदर्शी */
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            z-index: 100;
+            display: none; /* शुरुआत में छिपा हुआ */
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.6);
+            border: 2px solid #fff;
+        }
+        /* बटन स्टाइल */
+        button {
+            background-color: #4CAF50; /* हरा */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            margin-top: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        button:hover {
+            background-color: #45a049; /* गहरा हरा */
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-300 to-blue-500">
+
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-6 text-white text-shadow-lg drop-shadow-xl">चिड़िया उड़ाओ!</h1>
+
+    <div id="game-container" class="relative">
+        <div id="score-display">0</div>
+        <div id="bird">🐦</div>
+
+        <div id="message-box">
+            <h2 class="text-4xl font-bold mb-4 text-red-400">गेम ओवर!</h2>
+            <p class="text-2xl mb-4">आपका स्कोर: <span id="final-score">0</span></p>
+            <button id="restart-button">फिर से खेलें</button>
+        </div>
+    </div>
+
+    <script>
+        // गेम तत्वों को प्राप्त करें
+        const gameContainer = document.getElementById('game-container');
+        const bird = document.getElementById('bird');
+        const scoreDisplay = document.getElementById('score-display');
+        const messageBox = document.getElementById('message-box');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button');
+
+        // गेम की स्थिति के लिए वैरिएबल
+        let birdY = gameContainer.clientHeight / 2; // चिड़िया की Y स्थिति
+        let verticalVelocity = 0; // ऊर्ध्वाधर वेग
+        const gravity = 0.5; // गुरुत्वाकर्षण की शक्ति
+        const flapStrength = -8; // फ्लैप करने पर ऊपर जाने की शक्ति (नकारात्मक क्योंकि Y ऊपर की ओर घटता है)
+        let score = 0;
+        let gameRunning = false;
+        let gameLoopInterval;
+
+        // चिड़िया की स्थिति अपडेट करें
+        function updateBirdPosition() {
+            birdY += verticalVelocity;
+            verticalVelocity += gravity; // गुरुत्वाकर्षण लागू करें
+
+            // चिड़िया को गेम कंटेनर के अंदर रखें
+            if (birdY < 0) {
+                birdY = 0;
+                verticalVelocity = 0; // ऊपर की सीमा पर रोकें
+            }
+            if (birdY > gameContainer.clientHeight - bird.clientHeight) {
+                birdY = gameContainer.clientHeight - bird.clientHeight;
+                gameOver(); // नीचे की सीमा से टकराने पर गेम ओवर
+            }
+
+            bird.style.top = `${birdY}px`;
+        }
+
+        // चिड़िया को उड़ाने के लिए (फ्लैप)
+        function flap() {
+            if (!gameRunning) { // यदि गेम चल नहीं रहा है, तो शुरू करें
+                startGame();
+            }
+            verticalVelocity = flapStrength; // ऊपर की ओर वेग दें
+            // फ्लैप पर चिड़िया का रंग बदलें (विजुअल फीडबैक)
+            bird.style.backgroundColor = '#FFC107'; // थोड़ा नारंगी-पीला
+            setTimeout(() => {
+                bird.style.backgroundColor = '#FFD700'; // मूल रंग पर वापस
+            }, 100);
+        }
+
+        // गेम ओवर
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameLoopInterval); // गेम लूप बंद करें
+            finalScoreDisplay.textContent = score;
+            messageBox.style.display = 'block'; // मैसेज बॉक्स दिखाएं
+            gameContainer.style.cursor = 'default'; // कर्सर को डिफ़ॉल्ट पर सेट करें
+        }
+
+        // गेम शुरू करें
+        function startGame() {
+            // सभी पुरानी बाधाओं/तत्वों को हटा दें (यदि कोई हों)
+            // इस गेम में कोई बाधा नहीं है, लेकिन भविष्य के लिए
+            
+            score = 0;
+            scoreDisplay.textContent = score;
+            birdY = gameContainer.clientHeight / 2; // चिड़िया को बीच में रीसेट करें
+            verticalVelocity = 0;
+            messageBox.style.display = 'none'; // मैसेज बॉक्स छिपाएं
+            gameRunning = true;
+            gameContainer.style.cursor = 'pointer'; // क्लिक करने योग्य कर्सर
+
+            // गेम लूप शुरू करें
+            gameLoopInterval = setInterval(() => {
+                updateBirdPosition();
+                score++; // हर फ्रेम में स्कोर बढ़ाएं
+                scoreDisplay.textContent = score;
+            }, 20); // हर 20ms पर अपडेट करें
+        }
+
+        // क्लिक/टैप इवेंट लिसनर
+        gameContainer.addEventListener('click', flap);
+        gameContainer.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // मोबाइल पर डिफ़ॉल्ट टच व्यवहार को रोकें (जैसे स्क्रॉलिंग)
+            flap();
+        });
+
+        // कीबोर्ड इवेंट लिसनर (स्पेस बार)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'ArrowUp') {
+                flap();
+            }
+        });
+
+        // रीस्टार्ट बटन
+        restartButton.addEventListener('click', startGame);
+
+        // जब विंडो लोड हो जाए, तो गेम शुरू करें
+        window.onload = startGame;
+    </script>
+</body>
+</html>
